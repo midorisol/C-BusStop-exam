@@ -26,7 +26,7 @@ void print_bus_stops() {
     }
 }
 
-void delete_bus_stop() {
+void delete_bus_stop(char map[MAP_SIZE][MAP_SIZE]) {
     if(stopCount == 0) {
         printf("Nincs torolheto megallo!\n");
         return;
@@ -56,6 +56,7 @@ void delete_bus_stop() {
     stopCount--;
     printf("Megallo sikeresen torolve!\n");
 }
+
 
 void save_list() {
     if(stopCount == 0) {
@@ -181,7 +182,7 @@ int main() {
                 create_bus_stop(map);
                 break;
             case 4:
-                delete_bus_stop();
+                delete_bus_stop(map);
                 break;
             case 5:
                 save_list();
