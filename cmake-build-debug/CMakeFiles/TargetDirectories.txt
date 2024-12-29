@@ -1,0 +1,3 @@
+/Users/markcsoma/CLionProjects/Sample4/cmake-build-debug/CMakeFiles/Sample4.dir
+/Users/markcsoma/CLionProjects/Sample4/cmake-build-debug/CMakeFiles/edit_cache.dir
+/Users/markcsoma/CLionProjects/Sample4/cmake-build-debug/CMakeFiles/rebuild_cache.dir
