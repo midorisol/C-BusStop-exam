@@ -150,6 +150,52 @@ void displayMenu() {
     printf("\nValasszon menupontot: ");
 }
 
+void load_list(char map[MAP_SIZE][MAP_SIZE]) {
+    char filename[100];
+    printf("Kerem adja meg a fajl nevet: ");
+    scanf("%s", filename);
+
+    FILE *file = fopen(filename, "r");
+    if(file == NULL) {
+        printf("Hiba a fajl megnyitasa soran!\n");
+        return;
+    }
+
+    // Térkép és megállók törlése
+    for(int i = 0; i < MAP_SIZE; i++) {
+        for(int j = 0; j < MAP_SIZE; j++) {
+            map[i][j] = ' ';
+        }
+    }
+    stopCount = 0;
+
+    char name[MAX_NAME];
+    int x, y;
+
+    // Fájl beolvasása soronként
+    while(fscanf(file, "%[^\n]\n%d %d\n", name, &x, &y) == 3) {
+        if(x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE) {
+            printf("Hibas koordinatak a fajlban: %s (%d,%d)\n", name, x, y);
+            continue;
+        }
+
+        if(stopCount >= MAX_STOPS) {
+            printf("Nem lehet tobb megallot betolteni, a memoria megtelt!\n");
+            break;
+        }
+
+        // Megálló hozzáadása
+        strcpy(stops[stopCount].name, name);
+        stops[stopCount].x = x;
+        stops[stopCount].y = y;
+        map[x][y] = 'B';
+        stopCount++;
+    }
+
+    fclose(file);
+    printf("Lista sikeresen betoltve! Osszesen %d megallo.\n", stopCount);
+}
+
 int main() {
     char map[MAP_SIZE][MAP_SIZE];
     int choice;
@@ -188,7 +234,7 @@ int main() {
                 save_list();
                 break;
             case 6:
-                printf("Adatok betoltese fajlbol\n");
+                load_list(map);
                 break;
             case 7:
                 printf("Utvonal tervezes\n");
