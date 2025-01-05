@@ -3,7 +3,6 @@
 #include <string.h>
 
 #define MAP_SIZE 10
-#define MAX_STOPS 20
 #define MAX_NAME 50
 
 typedef struct {
@@ -12,54 +11,91 @@ typedef struct {
     int y;
 } BusStop;
 
-BusStop stops[MAX_STOPS];
-int stopCount = 0;
+typedef struct {
+    BusStop* stops;
+    int capacity;
+    int count;
+} BusSystem;
 
-void print_bus_stops() {
-    if(stopCount == 0) {
+
+BusSystem* init_bus_system(int initial_capacity) {
+    BusSystem* system = (BusSystem*)malloc(sizeof(BusSystem));
+    if (system == NULL) {
+        return NULL;
+    }
+    system->stops = (BusStop*)malloc(initial_capacity * sizeof(BusStop));
+    if (system->stops == NULL) {
+        free(system);
+        return NULL;
+    }
+    system->capacity = initial_capacity;
+    system->count = 0;
+    return system;
+}
+
+void free_bus_system(BusSystem* system) {
+    if (system != NULL) {
+        free(system->stops);
+        free(system);
+    }
+}
+
+// Növeli a tömb méretét, ha szükséges
+int expand_if_needed(BusSystem* system) {
+    if (system->count >= system->capacity) {
+        int new_capacity = system->capacity + 1;  // Csak eggyel növeljük
+        BusStop* new_stops = (BusStop*)realloc(system->stops, new_capacity * sizeof(BusStop));
+        if (new_stops == NULL) {
+            return 0;
+        }
+        system->stops = new_stops;
+        system->capacity = new_capacity;
+    }
+    return 1;
+}
+
+void print_bus_stops(const BusSystem* system) {
+    if(system->count == 0) {
         printf("Nincsenek buszmegallok a rendszerben.\n");
         return;
     }
 
-    for(int i = 0; i < stopCount; i++) {
-        printf("%d. %s (%d, %d)\n", i+1, stops[i].name, stops[i].x, stops[i].y);
+    for(int i = 0; i < system->count; i++) {
+        printf("%d. %s (%d, %d)\n", i+1, system->stops[i].name,
+               system->stops[i].x, system->stops[i].y);
     }
 }
 
-void delete_bus_stop(char map[MAP_SIZE][MAP_SIZE]) {
-    if(stopCount == 0) {
+void delete_bus_stop(BusSystem* system, char map[MAP_SIZE][MAP_SIZE]) {
+    if(system->count == 0) {
         printf("Nincs torolheto megallo!\n");
         return;
     }
 
-    print_bus_stops();
+    print_bus_stops(system);
 
     int index;
     printf("Kerem adja meg a torlendo megallo sorszamat: ");
     scanf("%d", &index);
 
-    if(index < 1 || index > stopCount) {
+    if(index < 1 || index > system->count) {
         printf("Hibas sorszam!\n");
         return;
     }
 
-    index--; // A felhasználó 1-től számoz, mi 0-tól
+    index--;
+    map[system->stops[index].x][system->stops[index].y] = ' ';
 
-    // Töröljük a megállót a térképről
-    map[stops[index].x][stops[index].y] = ' ';
-
-    // Tömörítjük a tömböt
-    for(int i = index; i < stopCount - 1; i++) {
-        stops[i] = stops[i + 1];
+    for(int i = index; i < system->count - 1; i++) {
+        system->stops[i] = system->stops[i + 1];
     }
 
-    stopCount--;
+    system->count--;
     printf("Megallo sikeresen torolve!\n");
 }
 
-
-void save_list() {
-    if(stopCount == 0) {
+void save_list(BusSystem* system) {
+    if(system->count == 0) {
         printf("Nincs mentheto lista!\n");
         return;
     }
@@ -74,8 +110,9 @@ void save_list() {
         return;
     }
 
-    for(int i = 0; i < stopCount; i++) {
-        fprintf(file, "%s\n%d %d\n", stops[i].name, stops[i].x, stops[i].y);
+    for(int i = 0; i < system->count; i++) {
+        fprintf(file, "%s\n%d %d\n", system->stops[i].name,
+                system->stops[i].x, system->stops[i].y);
     }
 
     fclose(file);
@@ -102,11 +139,9 @@ void show_map(char map[MAP_SIZE][MAP_SIZE]) {
     }
 }
 
-
-
-void create_bus_stop(char map[MAP_SIZE][MAP_SIZE]) {
-    if(stopCount >= MAX_STOPS) {
-        printf("Nem lehet tobb megallot letrehozni, a memoria megtelt!\n");
+void create_bus_stop(BusSystem* system, char map[MAP_SIZE][MAP_SIZE]) {
+    if (!expand_if_needed(system)) {
+        printf("Memoria foglalasi hiba!\n");
         return;
     }
 
@@ -114,7 +149,7 @@ void create_bus_stop(char map[MAP_SIZE][MAP_SIZE]) {
     printf("Kerem adja meg a megallo nevet: ");
     scanf(" %[^\n]s", newStop.name);
 
-    printf("Kerem adja meg a koordinatakat (1-10 kozott):\n");
+    printf("Kerem adja meg a koordinatakat (0-9 kozott):\n");
     printf("X koordinata: ");
     scanf("%d", &newStop.x);
     printf("Y koordinata: ");
@@ -131,10 +166,53 @@ void create_bus_stop(char map[MAP_SIZE][MAP_SIZE]) {
         return;
     }
 
-    stops[stopCount] = newStop;
-    stopCount++;
+    system->stops[system->count] = newStop;
+    system->count++;
     map[newStop.x][newStop.y] = 'B';
     printf("Megallo sikeresen letrehozva!\n");
+}
+
+void load_list(BusSystem* system, char map[MAP_SIZE][MAP_SIZE]) {
+    char filename[100];
+    printf("Kerem adja meg a fajl nevet: ");
+    scanf("%s", filename);
+
+    FILE *file = fopen(filename, "r");
+    if(file == NULL) {
+        printf("Hiba a fajl megnyitasa soran!\n");
+        return;
+    }
+
+    for(int i = 0; i < MAP_SIZE; i++) {
+        for(int j = 0; j < MAP_SIZE; j++) {
+            map[i][j] = ' ';
+        }
+    }
+    system->count = 0;
+
+    char name[MAX_NAME];
+    int x, y;
+
+    while(fscanf(file, "%[^\n]\n%d %d\n", name, &x, &y) == 3) {
+        if(x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE) {
+            printf("Hibas koordinatak a fajlban: %s (%d,%d)\n", name, x, y);
+            continue;
+        }
+
+        if (!expand_if_needed(system)) {
+            printf("Memoria foglalasi hiba!\n");
+            break;
+        }
+
+        strcpy(system->stops[system->count].name, name);
+        system->stops[system->count].x = x;
+        system->stops[system->count].y = y;
+        map[x][y] = 'B';
+        system->count++;
+    }
+
+    fclose(file);
+    printf("Lista sikeresen betoltve! Osszesen %d megallo.\n", system->count);
 }
 
 void displayMenu() {
@@ -150,55 +228,15 @@ void displayMenu() {
     printf("\nValasszon menupontot: ");
 }
 
-void load_list(char map[MAP_SIZE][MAP_SIZE]) {
-    char filename[100];
-    printf("Kerem adja meg a fajl nevet: ");
-    scanf("%s", filename);
-
-    FILE *file = fopen(filename, "r");
-    if(file == NULL) {
-        printf("Hiba a fajl megnyitasa soran!\n");
-        return;
-    }
-
-    // Térkép és megállók törlése
-    for(int i = 0; i < MAP_SIZE; i++) {
-        for(int j = 0; j < MAP_SIZE; j++) {
-            map[i][j] = ' ';
-        }
-    }
-    stopCount = 0;
-
-    char name[MAX_NAME];
-    int x, y;
-
-    // Fájl beolvasása soronként
-    while(fscanf(file, "%[^\n]\n%d %d\n", name, &x, &y) == 3) {
-        if(x < 0 || x >= MAP_SIZE || y < 0 || y >= MAP_SIZE) {
-            printf("Hibas koordinatak a fajlban: %s (%d,%d)\n", name, x, y);
-            continue;
-        }
-
-        if(stopCount >= MAX_STOPS) {
-            printf("Nem lehet tobb megallot betolteni, a memoria megtelt!\n");
-            break;
-        }
-
-        // Megálló hozzáadása
-        strcpy(stops[stopCount].name, name);
-        stops[stopCount].x = x;
-        stops[stopCount].y = y;
-        map[x][y] = 'B';
-        stopCount++;
-    }
-
-    fclose(file);
-    printf("Lista sikeresen betoltve! Osszesen %d megallo.\n", stopCount);
-}
-
 int main() {
     char map[MAP_SIZE][MAP_SIZE];
     int choice;
+   BusSystem* system = init_bus_system(1);  // Kezdeti kapacitás: 1
+
+    if (system == NULL) {
+        printf("Hiba: Nem sikerult inicializalni a rendszert!\n");
+        return 1;
+    }
 
     for(int i = 0; i < MAP_SIZE; i++) {
         for(int j = 0; j < MAP_SIZE; j++) {
@@ -215,36 +253,39 @@ int main() {
 
         switch(choice) {
             case 1:
-                if(stopCount == 0) {
+                if(system->count == 0) {
                     printf("Nincs megjeleníthető buszmegálló!\n");
                 } else {
                     show_map(map);
                 }
                 break;
             case 2:
-                print_bus_stops();
+                print_bus_stops(system);
                 break;
             case 3:
-                create_bus_stop(map);
+                create_bus_stop(system, map);
                 break;
             case 4:
-                delete_bus_stop(map);
+                delete_bus_stop(system, map);
                 break;
             case 5:
-                save_list();
+                save_list(system);
                 break;
             case 6:
-                load_list(map);
+                load_list(system, map);
                 break;
             case 7:
                 printf("Utvonal tervezes\n");
                 break;
             case 8:
+                free_bus_system(system);
                 printf("Viszontlatasra!\n");
                 return 0;
             default:
                 printf("Ervenytelen menupont! Kerem valasszon 1-8 kozott.\n");
         }
     }
+
+    free_bus_system(system);
     return 0;
 }
